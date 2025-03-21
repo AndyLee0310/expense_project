@@ -1,7 +1,8 @@
+import sqlite3, os
 from flask import Flask, render_template, request, redirect, url_for, g, session, flash
 from werkzeug.security import generate_password_hash, check_password_hash
-import sqlite3
 from datetime import datetime, timedelta
+from init_db import init_db
 
 app = Flask(__name__, instance_relative_config=True)
 app.secret_key = 'your_secret_key_here'  # Replace with a strong, random string in production
@@ -211,4 +212,10 @@ def calendar():
     return render_template('calendar.html', events=events, current_date=current_date)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+
+    # 若資料庫尚未建立才初始化
+    if not os.path.exists('instance/expense_management.db'):
+        init_db()
+
+    # app.run(debug=True)
+    app.run(debug=False, port=os.getenv("PORT", default=5000), host='0.0.0.0')
