@@ -217,5 +217,4 @@ if __name__ == '__main__':
     if not os.path.exists('instance/expense_management.db'):
         init_db()
 
-    # app.run(debug=True)
-    app.run(debug=False, port=os.getenv("PORT", default=5000), host='0.0.0.0')
+    app.run(debug=True)
