@@ -1,0 +1,8 @@
+DROP TABLE IF EXISTS expenses;
+
+CREATE TABLE expenses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item TEXT NOT NULL,
+    amount INTEGER NOT NULL,
+    date DATE NOT NULL
+);

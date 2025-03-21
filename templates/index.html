@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>支出統計行事曆</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body class="container mt-4">
+
+  <h1>支出統計行事曆</h1><h2>{{ year }} 年 {{ '%02d'|format(month) }} 月</h2>
+
+  <form method="post" action="/add" class="mb-3">
+    <div class="input-group">
+      <input type="text" name="item" class="form-control" placeholder="支出項目" required>
+      <input type="number" name="amount" class="form-control" placeholder="金額" required>
+      <input type="date" name="date" class="form-control" required>
+      <button type="submit" class="btn btn-primary w-25">新增</button>
+    </div>
+  </form>
+
+  <div class="d-flex justify-content-between align-items-center">
+    <a href="{{ url_for('index', year=prev_year, month=prev_month, page=1) }}" class="btn btn-outline-primary">← 上個月</a>
+    <form method="get" action="{{ url_for('index') }}">
+      <div class="d-flex align-items-center">
+        <select name="year" class="form-select me-2" style="width: 120px;" onchange="this.form.submit()">
+          {% for y in range(2025, 2033) %}
+            <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }} 年</option>
+          {% endfor %}
+        </select>
+        <select name="month" class="form-select me-2" style="width: 120px;" onchange="this.form.submit()">
+          {% for m in range(1, 13) %}
+            <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ '%02d'|format(m) }} 月</option>
+          {% endfor %}
+        </select>
+      </div>
+    </form>
+    <a href="{{ url_for('index', year=next_year, month=next_month, page=1) }}" class="btn btn-outline-primary">下個月 →</a>
+  </div>
+
+  <h3>本月支出明細</h3>
+  <table class="table table-striped table-bordered">
+    <tr>
+      <th class="table-dark">#</th>
+      <th class="table-dark">日期</th>
+      <th class="table-dark">項目</th>
+      <th class="table-dark">金額</th>
+      <th class="table-dark">操作</th>
+    </tr>
+    {% set start = (page - 1) * 10 %}
+    {% set end = start + 10 %}
+    {% for e in expenses[start:end] %}
+    <tr>
+      <td>{{ loop.index + start }}</td>
+      <td>{{ e['date'] }}</td>
+      <td>{{ e['item'] }}</td>
+      <td>{{ "{:,}".format(e['amount']) }}</td>
+      <td>
+        <form method="post" action="/delete" style="display:inline;" onsubmit="return confirm('確定要刪除這筆支出嗎？');">
+          <input type="hidden" name="id" value="{{ e['id'] }}">
+          <input type="hidden" name="year" value="{{ year }}">
+          <input type="hidden" name="month" value="{{ month }}">
+          <input type="hidden" name="page" value="{{ page }}">
+          <button type="submit" class="btn btn-danger btn-sm">刪除</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+
+  <nav aria-label="Page navigation">
+    <ul class="pagination justify-content-center">
+      <!-- Previous Button -->
+      <li class="page-item {% if page == 1 %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('index', year=year, month=month, page=page-1) }}" aria-label="Previous">
+          <span aria-hidden="true">&lsaquo;</span>
+        </a>
+      </li>
+
+      <!-- Page Numbers -->
+      {% set total_pages = (expenses|length // 10) + (1 if (expenses|length % 10) > 0 else 0) %}
+      {% for p in range(1, total_pages + 1) %}
+      <li class="page-item {% if p == page %}active{% endif %}">
+        <a class="page-link" href="{{ url_for('index', year=year, month=month, page=p) }}">{{ p }}</a>
+      </li>
+      {% endfor %}
+
+      <!-- Next Button -->
+      <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('index', year=year, month=month, page=page+1) }}" aria-label="Next">
+          <span aria-hidden="true">&rsaquo;</span>
+        </a>
+      </li>
+    </ul>
+  </nav>
+
+  <h3>每週支出統計</h3>
+  <table class="table table-striped table-bordered">
+    <tr>
+      <th class="table-dark">第幾週</th>
+      <th class="table-dark">總支出</th>
+    </tr>
+    {% for week in weekly_expenses %}
+    <tr>
+      <td>第 {{ loop.index }} 週</td>
+      <td>{{ "{:,}".format(week['SUM(amount)']) }} 元</td>
+    </tr>
+    {% endfor %}
+  </table>
+
+  <h3>本月總支出： <span style="color: red;">{{ "{:,}".format(monthly_total) }}</span> 元</h3>
+
+</body>
+</html>
