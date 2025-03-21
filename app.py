@@ -104,6 +104,7 @@ def add_expense():
     page = (total_items_before // 10) + 1
 
     return redirect(url_for('index', year=year, month=month, page=page))
+
 @app.route('/delete', methods=['POST'])
 def delete_expense():
     db = get_db()
@@ -117,6 +118,40 @@ def delete_expense():
     month = int(request.form.get('month'))
     page = int(request.form.get('page'))
     return redirect(url_for('index', year=year, month=month, page=page))
+
+@app.route('/calendar')
+def calendar():
+    db = get_db()
+
+    # year = request.args.get('year', type=int)
+    # month = request.args.get('month', type=int)
+    year = request.args.get('year', type=int, default=datetime.today().year)
+    month = request.args.get('month', type=int, default=datetime.today().month)
+    print(f"test:{year}")
+    print(f"test:{month}")
+
+
+    if year and month:
+        current_date = datetime(year, month, 1)
+    else:
+        current_date = datetime.today()
+    
+    print(f"test:{current_date}")
+
+    start_month = current_date.replace(day=1).strftime('%Y-%m-%d')
+    end_month = (current_date.replace(day=28) + timedelta(days=4)).replace(day=1).strftime('%Y-%m-%d')
+
+    expenses = db.execute(
+        'SELECT item, amount, date FROM expenses WHERE date >= ? AND date < ?',
+        (start_month, end_month)
+    ).fetchall()
+
+    events = [{
+        'title': f"{exp['item']} ${exp['amount']:,}",
+        'start': exp['date']
+    } for exp in expenses]
+
+    return render_template('calendar.html', events=events, current_date=current_date)
 
 if __name__ == '__main__':
     app.run(debug=True)

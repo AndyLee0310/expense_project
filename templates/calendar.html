@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <title>月曆支出表格</title>
+    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css' rel='stylesheet'>
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
+    <style>
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        #calendar {
+            height: 100% !important;
+        }
+
+        .fc {
+            height: 100% !important;
+        }
+
+        .fc-view-harness {
+            height: 100% !important;
+        }
+
+        .fc-daygrid {
+            height: 100% !important;
+        }
+
+        .fc-scrollgrid {
+            height: 100% !important;
+        }
+    </style>
+</head>
+
+<body>
+    <div id='calendar'></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var calendarEl = document.getElementById('calendar');
+            var calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                initialDate: '{{ current_date.strftime("%Y-%m-%d") }}',
+                events: {{ events| tojson }},
+            headerToolbar: false,
+            height: '100%',
+            expandRows: true
+            });
+        calendar.render();
+        });
+    </script>
+</body>
+
+</html>
