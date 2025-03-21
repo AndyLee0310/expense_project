@@ -1,8 +1,18 @@
+DROP TABLE IF EXISTS users;
+
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL
+);
+
 DROP TABLE IF EXISTS expenses;
 
 CREATE TABLE expenses (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     item TEXT NOT NULL,
     amount INTEGER NOT NULL,
-    date DATE NOT NULL
+    date DATE NOT NULL,
+    user_id INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );

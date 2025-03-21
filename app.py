@@ -1,8 +1,10 @@
-from flask import Flask, render_template, request, redirect, url_for, g
+from flask import Flask, render_template, request, redirect, url_for, g, session, flash
+from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 from datetime import datetime, timedelta
 
 app = Flask(__name__, instance_relative_config=True)
+app.secret_key = 'your_secret_key_here'  # Replace with a strong, random string in production
 DATABASE = 'instance/expense_management.db'
 
 def get_db():
@@ -19,6 +21,9 @@ def close_connection(exception):
 
 @app.route('/')
 def index():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
     db = get_db()
     
     # 取得當前的 year 和 month（若無則預設為當前月份）
@@ -34,14 +39,14 @@ def index():
 
     # 取得當月的支出資料
     expenses = db.execute(
-        'SELECT * FROM expenses WHERE date >= ? AND date < ? ORDER BY date ASC',
-        (start_date, end_date)
+        'SELECT * FROM expenses WHERE date >= ? AND date < ? AND user_id = ? ORDER BY date ASC',
+        (start_date, end_date, session['user_id'])
     ).fetchall()
 
     # 本月總支出
     monthly_total = db.execute(
-        'SELECT SUM(amount) FROM expenses WHERE date >= ? AND date < ?',
-        (start_date, end_date)
+        'SELECT SUM(amount) FROM expenses WHERE date >= ? AND date < ? AND user_id = ?',
+        (start_date, end_date, session['user_id'])
     ).fetchone()[0] or 0
 
     # 計算每週支出
@@ -49,11 +54,11 @@ def index():
         '''
         SELECT strftime('%W', date) AS week, SUM(amount) 
         FROM expenses 
-        WHERE date >= ? AND date < ?
+        WHERE date >= ? AND date < ? AND user_id = ?
         GROUP BY week
         ORDER BY week
         ''', 
-        (start_date, end_date)
+        (start_date, end_date, session['user_id'])
     ).fetchall()
 
     # 計算上一個月 & 下一個月的參數
@@ -78,14 +83,65 @@ def index():
         page=page
     )
 
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        db = get_db()
+
+        # 檢查是否已有相同帳號
+        existing_user = db.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+        if existing_user:
+            flash('帳號已存在，請選擇其他名稱', 'warning')
+        else:
+            hashed_password = generate_password_hash(password)
+            db.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, hashed_password))
+            db.commit()
+            flash('註冊成功，請登入', 'success')
+            return redirect(url_for('login'))
+
+    return render_template('register.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        db = get_db()
+
+        # 查詢用戶
+        user = db.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+        
+        if user and check_password_hash(user['password'], password):
+            session['user_id'] = user['id']
+            session['username'] = user['username']
+            flash('登入成功', 'success')
+            return redirect(url_for('index'))
+        else:
+            flash('帳號或密碼錯誤', 'danger')
+
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash('已登出', 'info')
+    return redirect(url_for('login'))
+
 @app.route('/add', methods=['POST'])
 def add_expense():
+    if 'user_id' not in session:
+        flash('請先登入', 'warning')
+        return redirect(url_for('login'))
+
     db = get_db()
     item = request.form['item']
     amount = request.form['amount']
     date = request.form['date']
+    user_id = session['user_id']
 
-    db.execute('INSERT INTO expenses (item, amount, date) VALUES (?, ?, ?)', (item, amount, date))
+    db.execute('INSERT INTO expenses (item, amount, date, user_id) VALUES (?, ?, ?, ?)', (item, amount, date, user_id))
     db.commit()
 
     # 解析年月（不使用 form 裡的 hidden year/month）
@@ -96,9 +152,9 @@ def add_expense():
 
     # 計算該筆資料會落在哪一頁（依目前排序邏輯）
     total_items_before = db.execute(
-        'SELECT COUNT(*) FROM expenses WHERE date >= ? AND date < ? AND date < ?',
+        'SELECT COUNT(*) FROM expenses WHERE date >= ? AND date < ? AND date < ? AND user_id = ?',
         (f"{year}-{month:02d}-01",
-         f"{year + 1 if month == 12 else year}-{(month % 12) + 1:02d}-01", date)
+         f"{year + 1 if month == 12 else year}-{(month % 12) + 1:02d}-01", date, user_id)
     ).fetchone()[0]
 
     page = (total_items_before // 10) + 1
@@ -107,6 +163,10 @@ def add_expense():
 
 @app.route('/delete', methods=['POST'])
 def delete_expense():
+    if 'user_id' not in session:
+        flash('請先登入', 'warning')
+        return redirect(url_for('login'))
+
     db = get_db()
     expense_id = request.form['id']
 
@@ -121,29 +181,26 @@ def delete_expense():
 
 @app.route('/calendar')
 def calendar():
+    if 'user_id' not in session:
+        flash('請先登入', 'warning')
+        return redirect(url_for('login'))
+
     db = get_db()
 
-    # year = request.args.get('year', type=int)
-    # month = request.args.get('month', type=int)
     year = request.args.get('year', type=int, default=datetime.today().year)
     month = request.args.get('month', type=int, default=datetime.today().month)
-    print(f"test:{year}")
-    print(f"test:{month}")
-
 
     if year and month:
         current_date = datetime(year, month, 1)
     else:
         current_date = datetime.today()
     
-    print(f"test:{current_date}")
-
     start_month = current_date.replace(day=1).strftime('%Y-%m-%d')
     end_month = (current_date.replace(day=28) + timedelta(days=4)).replace(day=1).strftime('%Y-%m-%d')
 
     expenses = db.execute(
-        'SELECT item, amount, date FROM expenses WHERE date >= ? AND date < ?',
-        (start_month, end_month)
+        'SELECT item, amount, date FROM expenses WHERE date >= ? AND date < ? AND user_id = ?',
+        (start_month, end_month, session['user_id'])
     ).fetchall()
 
     events = [{

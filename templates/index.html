@@ -11,6 +11,12 @@
   <nav class="navbar navbar-dark bg-dark mb-4">
     <div class="container-fluid">
       <a class="navbar-brand" href="/">支出統計管理</a>
+      <div class="d-flex align-items-center text-white">
+        {% if session.username %}
+        <span class="me-3">👤 {{ session.username }}</span>
+        <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-light">登出</a>
+        {% endif %}
+      </div>
     </div>
   </nav>
 
